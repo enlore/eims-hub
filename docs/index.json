@@ -564,6 +564,510 @@
     "builtinExternal": true
   },
   {
+    "__docId__": 48,
+    "kind": "file",
+    "name": "src/socks-vue-plugin.js",
+    "content": "/* jshint node: true, asi: true, laxcomma: true, esversion: 6 */\n'use strict'\n\nimport hub from './socks.js'\n\nconst $socks = {\n    install (Vue, opts) {\n        let url = opts.url\n\n        const {request, subscribe, unsubscribe} = hub({ url })\n\n        Vue.$request = request\n        Vue.$subscribe = subscribe\n        Vue.$unsubscribe = unsubscribe\n\n        Vue.prototype.$request = request\n        Vue.prototype.$subscribe = subscribe\n        Vue.prototype.$unsubscribe = unsubscribe\n    }\n}\n\nexport default $socks\n",
+    "static": true,
+    "longname": "/Users/mqi7918/lab/lab.packages/eims-hub/src/socks-vue-plugin.js",
+    "access": "public",
+    "description": null,
+    "lineNumber": 1
+  },
+  {
+    "__docId__": 49,
+    "kind": "variable",
+    "name": "$socks",
+    "memberof": "src/socks-vue-plugin.js",
+    "static": true,
+    "longname": "src/socks-vue-plugin.js~$socks",
+    "access": "public",
+    "export": true,
+    "importPath": "./src/socks-vue-plugin.js",
+    "importStyle": "$socks",
+    "description": null,
+    "lineNumber": 6,
+    "undocument": true,
+    "type": {
+      "types": [
+        "{\"install\": function}"
+      ]
+    }
+  },
+  {
+    "__docId__": 50,
+    "kind": "file",
+    "name": "src/socks.js",
+    "content": "/* jshint browser: true, asi: true, laxcomma: true, esversion: 6 */\n/* globals console */\n\n'use strict'\n\nimport uuid from 'uuid'\n\n// brought this in as a vue at first so I could do events based on the the subs\n// and requests\n\nclass hub {\n    /**\n     * @desc hub constructor, sets up config for backoff, WebSocket creation,\n     * internal message buffer, does some light sanity checking.\n     *\n     * @param {Object} opts\n     * @param {!string} opts.url - Server endpoint hosting websocket\n     * @param {string} [opts.subscribePath='/api/join'] - Server side message endpoint that\n     * services channel subscriptions.\n     * @param {number} [opts.factor=200] - Backoff step factor (\"to be increased by\")\n     * @param {number} [opts.max=2000] - Ceiling for backoff wait time\n     */\n    constuctor (opts) {\n        // {\n        //  chan: [sub, sub, sub] <- each sub func expects the message payload from the socket message\n        // }\n\n        /*\n         * @access private\n         */\n        this.subscriptions = {}\n\n        // {\n        //  reqId: (resp) => {}\n        // }\n        /* @access private */\n        this.requests = {}\n\n        if (!opts.url) throw new Error('Hub: no url passed for socket connection. Ejecting.')\n\n        this.url = opts.url\n\n        /* @access private */\n        this.backoff = 0\n\n        /* @access private */\n        this.factor = opts.factor || 200\n        /* @access private */\n        this.max = opts.max || 2000\n\n        this.sock = null\n        /* @access private */\n        this.sockOpen = false\n\n        if (!opts.subscribePath) console.warn('Hub: no `subscribePath` option set, using default `/api/join`')\n\n        this.subscribePath = opts.subscribePath || '/api/join'\n\n        this._bufferedMessages = []\n    }\n\n    // TODO make this \"private\"\n\n    /**\n     * @desc Create a new websocket and hold the ref to it internally. Also\n     * decorates the new `WebSocket` with a `write` method to serialized outgoing\n     * messages.\n    */\n    makeSocket () {\n        try {\n            this.sock = new WebSocket(this.url)\n\n        } catch (e) {\n            console.warn(e)\n            console.warn('attempting to establish connection again')\n\n            setTimeout(() => {\n                // allegedly not actually recursive (does not grow infinistack)\n                this.makeSocket(this.url)\n            }, 500)\n        }\n\n        this.sock.write = this.write.bind(this) // hrmmmm\n\n        if (this._bufferedMessages.length) {\n            // these have alread been serialized\n            let data\n\n            while ((data = this._bufferedMessages.pop())) {\n                this.sock.write(data)\n            }\n        }\n\n        this.sock.onopen = () => {\n            console.info('socket open')\n        }\n\n        this.sock.onclose = (ev) => {\n            console.info('socket close event', ev)\n        }\n\n        this.sock.onerror = (ev) => {\n            console.error('socket error event', ev)\n        }\n\n        this.sock.onmessage = this.handle\n    }\n\n    // context of .write method bound to instance of hub forcibly with .bind call\n\n    /**\n     * @desc Serialize and write data to WebSocket. Has been attached to WebSocket\n     * object via a `bind` call, binding its context to that of the hub instance.\n     * @param {any} data - serializeable object to be sent across socket\n    */\n    write (data) {\n        let msg\n\n        // the flow of making a connection needs to be audited\n        // this sort of check is required in too many places\n        if (!this.sock) {\n            this.makeSocket(this.url)\n        }\n\n        if (this.sock.readyState === this.sock.OPEN) {\n            try {\n                msg = JSON.stringify(data)\n            } catch (e) {\n                // TODO error hub thing\n                throw e\n            }\n\n            this.backoff = 0\n            this.sock.send(msg)\n\n        } else if (this.sock.readyState === this.sock.CONNECTING) {\n            console.warn('socket still connecting, retry in a tick')\n\n            setTimeout(() => {\n                this.sock.write(data)\n            }, 100)\n\n        } else {\n            console.warn(`socket disconnected, retry in a bit: ${this.backoff}`)\n\n            this._bufferedMessages.unshift(data)\n\n            this.sock = null\n\n            setTimeout(() => {\n                this.backoff = this.backoff + 1 * this.factor\n                this.backoff = this.backoff <= this.max ? this.backoff : this.max\n\n                this.makeSocket(this.url)\n            }, this.backoff)\n        }\n    }\n\n    /**\n     * @access private\n    */\n    handle (ev) {\n        let data = this.read(ev)\n\n        if (data.requestId) {\n            data.pending = false\n\n            let handler = this.requests[data.requestId]\n\n            if (handler) {\n                handler(data)\n                delete this.requests[data.requestId]\n            } else {\n                console.warn(`pipeline:orphaned_response - no handler`, data)\n            }\n\n        } else if (data.channel) {\n            let subs = this.subscriptions[data.channel] // [func, func, func]\n\n            if (subs) {\n                subs.forEach(sub => sub(data))\n            }\n        }\n    }\n\n    /**\n     * @desc Write a message to the server expecting a response to come back keyed\n     * with the same `requestId` as aformentioned write.\n     *\n     * @param {object} req - Request object to be written to WebSocket. Will be\n     * deocorated with `uuid.v1` and `pending = true`.\n     *\n     * @return {Promise} Rejects if `error` property present on payload from\n     * server, resolves otherwise.\n     */\n    request (req) {\n        req.requestId = uuid.v1()\n        req.pending = true\n\n        let promise = new Promise(function (resolve, reject) {\n            // register a callback that will recieve the response data from the\n            // request and finish the promise with it\n            this.requests[req.requestId] = function (response) {\n                if (response.error) reject(response)\n                else resolve(response)\n            }\n        })\n\n        if (this.sock)\n            this.sock.write(req)\n        else {\n            this.makeSocket()\n            this.sock.write(req)\n        }\n\n        return promise\n    }\n\n    /**\n     * @desc Initiate write to WebSocket to communicate interest in subscribing to\n     * messages across a given channel. Pass `subscribePath` as option to\n     * constructor to configure \"endpoint\" used to initiate subscription on server.\n     *\n     * @param {string} channel - Name of channel, to be send on `body.channel`\n     * property of outgoing message.\n     *\n     * @param {string} topic - Optional topic in channel, could be used as a sort of\n     * subcategory of interest.\n     *\n     * @param {function(msgData: Object)} cb - Callback to be invoked on each message written to\n     * channel by server.\n     */\n    subscribe (channel, topic, cb) {\n        // arg snip\n        if (typeof topic === 'function') {\n            cb = topic\n            topic = null\n        }\n\n        if (this.sock) {\n            this.sock.write({\n                path: this.subscribePath,\n                body: { channel }\n            })\n        } else {\n            this.makeSocket()\n            this.sock.write({\n                path: this.subscribePath,\n                body: { channel }\n            })\n        }\n\n        this.subscriptions[channel] = this.subscriptions[channel] || []\n\n        let subs = this.subscriptions[channel]\n\n        if (subs.indexOf(cb) === -1)\n            subs.push(cb)\n    }\n\n    // TODO finer grained unsub control? unsub from topic, not from whole channel?\n\n    /**\n     * @desc Send message to server indicating desire to unsubscribe from given\n     * channel.\n     *\n     * @param {string} channel - Name of channel to unsub from.\n     *\n     * @param {function} cb - Reference to the callback originally passed on\n     * subscription creation.\n    */\n    unsubscribe (channel, cb) {\n        this.sock.write({\n            path: this.subscribePath,\n            body: { channel }\n        })\n\n        if (!cb) {\n            console.error('pipeline:$unsubscribe - method requires reference to original callback as second arg')\n            return\n        }\n\n        let subs = this.subscriptions[channel]\n\n        let index = subs.indexOf(cb)\n\n        if (index !== -1)\n            subs.splice(index, 1)\n        else {\n            console.error('pipeline:$unsubscribe - subscription callback not found in channel')\n        }\n\n        if (subs.length === 0) {\n            delete this.subscriptions[channel]\n        }\n    }\n\n    /**\n     * @access private\n    */\n    read (msg) {\n        try {\n            let data = JSON.parse(msg.data)\n            return data\n        } catch (e) {\n            // TODO error hub thing\n            throw e\n        }\n    }\n}\n\nexport default hub\n",
+    "static": true,
+    "longname": "/Users/mqi7918/lab/lab.packages/eims-hub/src/socks.js",
+    "access": "public",
+    "description": null,
+    "lineNumber": 1
+  },
+  {
+    "__docId__": 51,
+    "kind": "class",
+    "name": "hub",
+    "memberof": "src/socks.js",
+    "static": true,
+    "longname": "src/socks.js~hub",
+    "access": "public",
+    "export": true,
+    "importPath": null,
+    "importStyle": "hub",
+    "description": null,
+    "lineNumber": 11,
+    "undocument": true,
+    "interface": false
+  },
+  {
+    "__docId__": 52,
+    "kind": "method",
+    "name": "constuctor",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#constuctor",
+    "access": "public",
+    "description": "hub constructor, sets up config for backoff, WebSocket creation,\ninternal message buffer, does some light sanity checking.",
+    "lineNumber": 23,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "Object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "opts",
+        "description": ""
+      },
+      {
+        "nullable": false,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "opts.url",
+        "description": "Server endpoint hosting websocket"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": true,
+        "defaultValue": "'/api/join'",
+        "defaultRaw": "'/api/join'",
+        "name": "opts.subscribePath",
+        "description": "Server side message endpoint that\nservices channel subscriptions."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "number"
+        ],
+        "spread": false,
+        "optional": true,
+        "defaultValue": "200",
+        "defaultRaw": 200,
+        "name": "opts.factor",
+        "description": "Backoff step factor (\"to be increased by\")"
+      },
+      {
+        "nullable": null,
+        "types": [
+          "number"
+        ],
+        "spread": false,
+        "optional": true,
+        "defaultValue": "2000",
+        "defaultRaw": 2000,
+        "name": "opts.max",
+        "description": "Ceiling for backoff wait time"
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 53,
+    "kind": "member",
+    "name": "subscriptions",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#subscriptions",
+    "access": "public",
+    "description": null,
+    "lineNumber": 31,
+    "undocument": true,
+    "type": {
+      "types": [
+        "{}"
+      ]
+    }
+  },
+  {
+    "__docId__": 54,
+    "kind": "member",
+    "name": "requests",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#requests",
+    "access": "public",
+    "description": null,
+    "lineNumber": 37,
+    "undocument": true,
+    "type": {
+      "types": [
+        "{}"
+      ]
+    }
+  },
+  {
+    "__docId__": 55,
+    "kind": "member",
+    "name": "url",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#url",
+    "access": "public",
+    "description": null,
+    "lineNumber": 41,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 56,
+    "kind": "member",
+    "name": "backoff",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#backoff",
+    "access": "public",
+    "description": null,
+    "lineNumber": 44,
+    "undocument": true,
+    "type": {
+      "types": [
+        "number"
+      ]
+    }
+  },
+  {
+    "__docId__": 57,
+    "kind": "member",
+    "name": "factor",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#factor",
+    "access": "public",
+    "description": null,
+    "lineNumber": 47,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 58,
+    "kind": "member",
+    "name": "max",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#max",
+    "access": "public",
+    "description": null,
+    "lineNumber": 49,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 59,
+    "kind": "member",
+    "name": "sock",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#sock",
+    "access": "public",
+    "description": null,
+    "lineNumber": 51,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 60,
+    "kind": "member",
+    "name": "sockOpen",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#sockOpen",
+    "access": "public",
+    "description": null,
+    "lineNumber": 53,
+    "undocument": true,
+    "type": {
+      "types": [
+        "boolean"
+      ]
+    }
+  },
+  {
+    "__docId__": 61,
+    "kind": "member",
+    "name": "subscribePath",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#subscribePath",
+    "access": "public",
+    "description": null,
+    "lineNumber": 57,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
+    "__docId__": 62,
+    "kind": "member",
+    "name": "_bufferedMessages",
+    "memberof": "src/socks.js~hub",
+    "static": false,
+    "longname": "src/socks.js~hub#_bufferedMessages",
+    "access": "private",
+    "description": null,
+    "lineNumber": 59,
+    "undocument": true,
+    "type": {
+      "types": [
+        "*[]"
+      ]
+    }
+  },
+  {
+    "__docId__": 63,
+    "kind": "method",
+    "name": "makeSocket",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#makeSocket",
+    "access": "public",
+    "description": "Create a new websocket and hold the ref to it internally. Also\ndecorates the new `WebSocket` with a `write` method to serialized outgoing\nmessages.",
+    "lineNumber": 69,
+    "params": [],
+    "return": null
+  },
+  {
+    "__docId__": 65,
+    "kind": "method",
+    "name": "write",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#write",
+    "access": "public",
+    "description": "Serialize and write data to WebSocket. Has been attached to WebSocket\nobject via a `bind` call, binding its context to that of the hub instance.",
+    "lineNumber": 116,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "any"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "data",
+        "description": "serializeable object to be sent across socket"
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 70,
+    "kind": "method",
+    "name": "handle",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#handle",
+    "access": "private",
+    "description": "",
+    "lineNumber": 162,
+    "params": [
+      {
+        "name": "ev",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 71,
+    "kind": "method",
+    "name": "request",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#request",
+    "access": "public",
+    "description": "Write a message to the server expecting a response to come back keyed\nwith the same `requestId` as aformentioned write.",
+    "lineNumber": 196,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "object"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "req",
+        "description": "Request object to be written to WebSocket. Will be\ndeocorated with `uuid.v1` and `pending = true`."
+      }
+    ],
+    "return": {
+      "nullable": null,
+      "types": [
+        "Promise"
+      ],
+      "spread": false,
+      "description": "Rejects if `error` property present on payload from\nserver, resolves otherwise."
+    }
+  },
+  {
+    "__docId__": 72,
+    "kind": "method",
+    "name": "subscribe",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#subscribe",
+    "access": "public",
+    "description": "Initiate write to WebSocket to communicate interest in subscribing to\nmessages across a given channel. Pass `subscribePath` as option to\nconstructor to configure \"endpoint\" used to initiate subscription on server.",
+    "lineNumber": 233,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "channel",
+        "description": "Name of channel, to be send on `body.channel`\nproperty of outgoing message."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "topic",
+        "description": "Optional topic in channel, could be used as a sort of\nsubcategory of interest."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "function(msgData: Object)"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "cb",
+        "description": "Callback to be invoked on each message written to\nchannel by server."
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 73,
+    "kind": "method",
+    "name": "unsubscribe",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#unsubscribe",
+    "access": "public",
+    "description": "Send message to server indicating desire to unsubscribe from given\nchannel.",
+    "lineNumber": 272,
+    "params": [
+      {
+        "nullable": null,
+        "types": [
+          "string"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "channel",
+        "description": "Name of channel to unsub from."
+      },
+      {
+        "nullable": null,
+        "types": [
+          "function"
+        ],
+        "spread": false,
+        "optional": false,
+        "name": "cb",
+        "description": "Reference to the callback originally passed on\nsubscription creation."
+      }
+    ],
+    "return": null
+  },
+  {
+    "__docId__": 74,
+    "kind": "method",
+    "name": "read",
+    "memberof": "src/socks.js~hub",
+    "generator": false,
+    "async": false,
+    "static": false,
+    "longname": "src/socks.js~hub#read",
+    "access": "private",
+    "description": "",
+    "lineNumber": 301,
+    "params": [
+      {
+        "name": "msg",
+        "types": [
+          "*"
+        ]
+      }
+    ],
+    "return": {
+      "types": [
+        "*"
+      ]
+    }
+  },
+  {
     "kind": "index",
     "content": "# Hub\n\n> hoob\n\nHere's a simple client side websocket utililty tool. Create a websocket, audo\nde/serialize messages across the sockect, auto reconnect with stepped backoff,\nmanage pub/sub style subscribtions to channels on a corresponding server.\n\nUses [`eims-rest-contract`] to standardize read/write message payloads and assist\nin some bookeeping involing message ids, timestamps, and the like.\n\n[`eims-rest-contract`]: (https://github.com/enlore/eims-rest-contract)\n",
     "longname": "/Users/mqi7918/lab/lab.packages/eims-hub/README.md",
@@ -573,7 +1077,7 @@
   },
   {
     "kind": "packageJSON",
-    "content": "{\n  \"scripts\": {\n    \"test\": \"karma start karma.conf.js --log-level info\",\n    \"docs\": \"esdoc\"\n  },\n  \"devDependencies\": {\n    \"esdoc\": \"^1.0.2\",\n    \"esdoc-standard-plugin\": \"^1.0.0\",\n    \"jasmine-core\": \"^2.8.0\",\n    \"karma\": \"^1.7.1\",\n    \"karma-chrome-launcher\": \"^2.2.0\",\n    \"karma-firefox-launcher\": \"^1.0.1\",\n    \"karma-jasmine\": \"^1.1.0\",\n    \"karma-rollup-preprocessor\": \"^5.0.1\",\n    \"rollup\": \"^0.49.3\",\n    \"rollup-plugin-buble\": \"^0.15.0\"\n  },\n  \"dependencies\": {\n    \"uuid\": \"^3.1.0\"\n  }\n}\n",
+    "content": "{\n    \"main\": \"src/socks.js\",\n    \"scripts\": {\n        \"test\": \"karma start karma.conf.js --log-level info\",\n        \"docs\": \"esdoc\"\n    },\n    \"devDependencies\": {\n        \"esdoc\": \"^1.0.2\",\n        \"esdoc-standard-plugin\": \"^1.0.0\",\n        \"jasmine-core\": \"^2.8.0\",\n        \"karma\": \"^1.7.1\",\n        \"karma-chrome-launcher\": \"^2.2.0\",\n        \"karma-firefox-launcher\": \"^1.0.1\",\n        \"karma-jasmine\": \"^1.1.0\",\n        \"karma-rollup-preprocessor\": \"^5.0.1\",\n        \"rollup\": \"^0.49.3\",\n        \"rollup-plugin-buble\": \"^0.15.0\"\n    },\n    \"dependencies\": {\n        \"uuid\": \"^3.1.0\"\n    }\n}\n",
     "longname": "/Users/mqi7918/lab/lab.packages/eims-hub/package.json",
     "name": "package.json",
     "static": true,

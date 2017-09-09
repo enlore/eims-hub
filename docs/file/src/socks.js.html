@@ -1,9 +1,47 @@
-/* jshint browser: true, asi: true, laxcomma: true, esversion: 6 */
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <base data-ice="baseUrl" href="../../">
+  <title data-ice="title">src/socks.js</title>
+  <link type="text/css" rel="stylesheet" href="css/style.css">
+  <link type="text/css" rel="stylesheet" href="css/prettify-tomorrow.css">
+  <script src="script/prettify/prettify.js"></script>
+  <script src="script/manual.js"></script>
+</head>
+<body class="layout-container" data-ice="rootContainer">
+
+<header>
+  <a href="./">Home</a>
+  
+  <a href="identifiers.html">Reference</a>
+  <a href="source.html">Source</a>
+  
+  <div class="search-box">
+  <span>
+    <img src="./image/search.png">
+    <span class="search-input-edge"></span><input class="search-input"><span class="search-input-edge"></span>
+  </span>
+    <ul class="search-result"></ul>
+  </div>
+</header>
+
+<nav class="navigation" data-ice="nav"><div>
+  <ul>
+    
+  <li data-ice="doc"><span data-ice="kind" class="kind-class">C</span><span data-ice="name"><span><a href="class/src/socks.js~hub.html">hub</a></span></span></li>
+<li data-ice="doc"><span data-ice="kind" class="kind-variable">V</span><span data-ice="name"><span><a href="variable/index.html#static-variable-$socks">$socks</a></span></span></li>
+</ul>
+</div>
+</nav>
+
+<div class="content" data-ice="content"><h1 data-ice="title">src/socks.js</h1>
+<pre class="source-code line-number raw-source-code"><code class="prettyprint linenums" data-ice="content">/* jshint browser: true, asi: true, laxcomma: true, esversion: 6 */
 /* globals console */
 
-'use strict'
+&apos;use strict&apos;
 
-import uuid from 'uuid'
+import uuid from &apos;uuid&apos;
 
 // brought this in as a vue at first so I could do events based on the the subs
 // and requests
@@ -15,14 +53,14 @@ class hub {
      *
      * @param {Object} opts
      * @param {!string} opts.url - Server endpoint hosting websocket
-     * @param {string} [opts.subscribePath='/api/join'] - Server side message endpoint that
+     * @param {string} [opts.subscribePath=&apos;/api/join&apos;] - Server side message endpoint that
      * services channel subscriptions.
-     * @param {number} [opts.factor=200] - Backoff step factor ("to be increased by")
+     * @param {number} [opts.factor=200] - Backoff step factor (&quot;to be increased by&quot;)
      * @param {number} [opts.max=2000] - Ceiling for backoff wait time
      */
     constuctor (opts) {
         // {
-        //  chan: [sub, sub, sub] <- each sub func expects the message payload from the socket message
+        //  chan: [sub, sub, sub] &lt;- each sub func expects the message payload from the socket message
         // }
 
         /*
@@ -31,12 +69,12 @@ class hub {
         this.subscriptions = {}
 
         // {
-        //  reqId: (resp) => {}
+        //  reqId: (resp) =&gt; {}
         // }
         /* @access private */
         this.requests = {}
 
-        if (!opts.url) throw new Error('Hub: no url passed for socket connection. Ejecting.')
+        if (!opts.url) throw new Error(&apos;Hub: no url passed for socket connection. Ejecting.&apos;)
 
         this.url = opts.url
 
@@ -52,14 +90,14 @@ class hub {
         /* @access private */
         this.sockOpen = false
 
-        if (!opts.subscribePath) console.warn('Hub: no `subscribePath` option set, using default `/api/join`')
+        if (!opts.subscribePath) console.warn(&apos;Hub: no `subscribePath` option set, using default `/api/join`&apos;)
 
-        this.subscribePath = opts.subscribePath || '/api/join'
+        this.subscribePath = opts.subscribePath || &apos;/api/join&apos;
 
         this._bufferedMessages = []
     }
 
-    // TODO make this "private"
+    // TODO make this &quot;private&quot;
 
     /**
      * @desc Create a new websocket and hold the ref to it internally. Also
@@ -72,9 +110,9 @@ class hub {
 
         } catch (e) {
             console.warn(e)
-            console.warn('attempting to establish connection again')
+            console.warn(&apos;attempting to establish connection again&apos;)
 
-            setTimeout(() => {
+            setTimeout(() =&gt; {
                 // allegedly not actually recursive (does not grow infinistack)
                 this.makeSocket(this.url)
             }, 500)
@@ -91,16 +129,16 @@ class hub {
             }
         }
 
-        this.sock.onopen = () => {
-            console.info('socket open')
+        this.sock.onopen = () =&gt; {
+            console.info(&apos;socket open&apos;)
         }
 
-        this.sock.onclose = (ev) => {
-            console.info('socket close event', ev)
+        this.sock.onclose = (ev) =&gt; {
+            console.info(&apos;socket close event&apos;, ev)
         }
 
-        this.sock.onerror = (ev) => {
-            console.error('socket error event', ev)
+        this.sock.onerror = (ev) =&gt; {
+            console.error(&apos;socket error event&apos;, ev)
         }
 
         this.sock.onmessage = this.handle
@@ -134,9 +172,9 @@ class hub {
             this.sock.send(msg)
 
         } else if (this.sock.readyState === this.sock.CONNECTING) {
-            console.warn('socket still connecting, retry in a tick')
+            console.warn(&apos;socket still connecting, retry in a tick&apos;)
 
-            setTimeout(() => {
+            setTimeout(() =&gt; {
                 this.sock.write(data)
             }, 100)
 
@@ -147,9 +185,9 @@ class hub {
 
             this.sock = null
 
-            setTimeout(() => {
+            setTimeout(() =&gt; {
                 this.backoff = this.backoff + 1 * this.factor
-                this.backoff = this.backoff <= this.max ? this.backoff : this.max
+                this.backoff = this.backoff &lt;= this.max ? this.backoff : this.max
 
                 this.makeSocket(this.url)
             }, this.backoff)
@@ -178,7 +216,7 @@ class hub {
             let subs = this.subscriptions[data.channel] // [func, func, func]
 
             if (subs) {
-                subs.forEach(sub => sub(data))
+                subs.forEach(sub =&gt; sub(data))
             }
         }
     }
@@ -219,7 +257,7 @@ class hub {
     /**
      * @desc Initiate write to WebSocket to communicate interest in subscribing to
      * messages across a given channel. Pass `subscribePath` as option to
-     * constructor to configure "endpoint" used to initiate subscription on server.
+     * constructor to configure &quot;endpoint&quot; used to initiate subscription on server.
      *
      * @param {string} channel - Name of channel, to be send on `body.channel`
      * property of outgoing message.
@@ -232,7 +270,7 @@ class hub {
      */
     subscribe (channel, topic, cb) {
         // arg snip
-        if (typeof topic === 'function') {
+        if (typeof topic === &apos;function&apos;) {
             cb = topic
             topic = null
         }
@@ -276,7 +314,7 @@ class hub {
         })
 
         if (!cb) {
-            console.error('pipeline:$unsubscribe - method requires reference to original callback as second arg')
+            console.error(&apos;pipeline:$unsubscribe - method requires reference to original callback as second arg&apos;)
             return
         }
 
@@ -287,7 +325,7 @@ class hub {
         if (index !== -1)
             subs.splice(index, 1)
         else {
-            console.error('pipeline:$unsubscribe - subscription callback not found in channel')
+            console.error(&apos;pipeline:$unsubscribe - subscription callback not found in channel&apos;)
         }
 
         if (subs.length === 0) {
@@ -310,3 +348,20 @@ class hub {
 }
 
 export default hub
+</code></pre>
+
+</div>
+
+<footer class="footer">
+  Generated by <a href="https://esdoc.org">ESDoc<span data-ice="esdocVersion">(1.0.2)</span><img src="./image/esdoc-logo-mini-black.png"></a>
+</footer>
+
+<script src="script/search_index.js"></script>
+<script src="script/search.js"></script>
+<script src="script/pretty-print.js"></script>
+<script src="script/inherited-summary.js"></script>
+<script src="script/test-summary.js"></script>
+<script src="script/inner-link.js"></script>
+<script src="script/patch-for-local.js"></script>
+</body>
+</html>
