@@ -26,6 +26,9 @@ describe('hub construction', function () {
         expect(h.sock).toBeDefined()
         expect(h.sock).toBeTruthy()
     })
+
+    it('attempts to reconnect on `close` with `error`')
+    it('optionally attempts reconnection with stepped backoff')
 })
 
 describe('hub errors', function () {
@@ -34,4 +37,12 @@ describe('hub errors', function () {
             let h = new hub({})
         }).toThrowError(/no url passed/)
     })
+})
+
+describe('hub contract', function () {
+    it('sends a `body` property')
+    it('sends a `channel` property')
+    it('pairs incoming and outgoing messages with a `requestId`')
+    it('expects a `data` property')
+    it('expects an `error` property')
 })
