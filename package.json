@@ -2,12 +2,16 @@
     "main": "src/socks.js",
     "scripts": {
         "test": "karma start karma.conf.js --log-level info",
-        "docs": "esdoc"
+        "docs": "yarn run docs:build; yarn run docs:readme",
+        "docs:readme": "documentation readme src/** --section=API",
+        "docs:build": "documentation build src/** -f html -o docs"
     },
     "devDependencies": {
+        "documentation": "^5.3.1",
         "esdoc": "^1.0.2",
         "esdoc-standard-plugin": "^1.0.0",
         "jasmine-core": "^2.8.0",
+        "jsdoc": "^3.5.4",
         "karma": "^1.7.1",
         "karma-chrome-launcher": "^2.2.0",
         "karma-firefox-launcher": "^1.0.1",

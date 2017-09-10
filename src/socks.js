@@ -8,48 +8,48 @@ import uuid from 'uuid'
 // brought this in as a vue at first so I could do events based on the the subs
 // and requests
 
+/**
+ * hub constructor, sets up config for backoff, WebSocket creation,
+ * internal message buffer, does some light sanity checking.
+ *
+ * @param {Object} opts
+ * @param {!string} opts.url - Server endpoint hosting websocket
+ * @param {string} [opts.subscribePath='/api/join'] - Server side message endpoint that
+ * services channel subscriptions.
+ * @param {number} [opts.factor=200] - Backoff step factor ("to be increased by")
+ * @param {number} [opts.max=2000] - Ceiling for backoff wait time
+ */
 class hub {
-    /**
-     * @desc hub constructor, sets up config for backoff, WebSocket creation,
-     * internal message buffer, does some light sanity checking.
-     *
-     * @param {Object} opts
-     * @param {!string} opts.url - Server endpoint hosting websocket
-     * @param {string} [opts.subscribePath='/api/join'] - Server side message endpoint that
-     * services channel subscriptions.
-     * @param {number} [opts.factor=200] - Backoff step factor ("to be increased by")
-     * @param {number} [opts.max=2000] - Ceiling for backoff wait time
-     */
     constuctor (opts) {
         // {
         //  chan: [sub, sub, sub] <- each sub func expects the message payload from the socket message
         // }
 
         /*
-         * @access private
+         * @private
          */
         this.subscriptions = {}
 
         // {
         //  reqId: (resp) => {}
         // }
-        /* @access private */
+        /* @private */
         this.requests = {}
 
         if (!opts.url) throw new Error('Hub: no url passed for socket connection. Ejecting.')
 
         this.url = opts.url
 
-        /* @access private */
+        /* @private */
         this.backoff = 0
 
-        /* @access private */
+        /* @private */
         this.factor = opts.factor || 200
-        /* @access private */
+        /* @private */
         this.max = opts.max || 2000
 
         this.sock = null
-        /* @access private */
+        /* @private */
         this.sockOpen = false
 
         if (!opts.subscribePath) console.warn('Hub: no `subscribePath` option set, using default `/api/join`')
@@ -62,7 +62,7 @@ class hub {
     // TODO make this "private"
 
     /**
-     * @desc Create a new websocket and hold the ref to it internally. Also
+     * Create a new websocket and hold the ref to it internally. Also
      * decorates the new `WebSocket` with a `write` method to serialized outgoing
      * messages.
     */
@@ -109,7 +109,7 @@ class hub {
     // context of .write method bound to instance of hub forcibly with .bind call
 
     /**
-     * @desc Serialize and write data to WebSocket. Has been attached to WebSocket
+     * Serialize and write data to WebSocket. Has been attached to WebSocket
      * object via a `bind` call, binding its context to that of the hub instance.
      * @param {any} data - serializeable object to be sent across socket
     */
@@ -157,7 +157,7 @@ class hub {
     }
 
     /**
-     * @access private
+     * @private
     */
     handle (ev) {
         let data = this.read(ev)
@@ -184,7 +184,7 @@ class hub {
     }
 
     /**
-     * @desc Write a message to the server expecting a response to come back keyed
+     * Write a message to the server expecting a response to come back keyed
      * with the same `requestId` as aformentioned write.
      *
      * @param {object} req - Request object to be written to WebSocket. Will be
@@ -217,7 +217,12 @@ class hub {
     }
 
     /**
-     * @desc Initiate write to WebSocket to communicate interest in subscribing to
+     * @callback subscribeCallback
+     * @param {object} msgData - message coming from server
+     */
+
+    /**
+     * Initiate write to WebSocket to communicate interest in subscribing to
      * messages across a given channel. Pass `subscribePath` as option to
      * constructor to configure "endpoint" used to initiate subscription on server.
      *
@@ -227,7 +232,7 @@ class hub {
      * @param {string} topic - Optional topic in channel, could be used as a sort of
      * subcategory of interest.
      *
-     * @param {function(msgData: Object)} cb - Callback to be invoked on each message written to
+     * @param {subscribeCallback} cb - Callback to be invoked on each message written to
      * channel by server.
      */
     subscribe (channel, topic, cb) {
@@ -261,7 +266,7 @@ class hub {
     // TODO finer grained unsub control? unsub from topic, not from whole channel?
 
     /**
-     * @desc Send message to server indicating desire to unsubscribe from given
+     * Send message to server indicating desire to unsubscribe from given
      * channel.
      *
      * @param {string} channel - Name of channel to unsub from.
@@ -296,7 +301,7 @@ class hub {
     }
 
     /**
-     * @access private
+     * @private
     */
     read (msg) {
         try {
