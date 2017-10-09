@@ -1,5 +1,5 @@
 {
-    "main": "src/socks.js",
+    "main": "index.js",
     "scripts": {
         "test": "karma start karma.conf.js --log-level info",
         "docs": "yarn run docs:build; yarn run docs:readme",
