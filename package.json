@@ -1,5 +1,10 @@
 {
+    "version": "0.1.0",
+    "name": "eims-hub",
     "main": "index.js",
+    "license": "MIT",
+    "description": "websockets with reconn, backoff, serialization, pub sub, req res",
+    "author": "enlore <n.e.lorenson@gmail.com>",
     "scripts": {
         "test": "karma start karma.conf.js --log-level info",
         "docs": "yarn run docs:build; yarn run docs:readme",
