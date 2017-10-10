@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset='utf-8' />
-  <title>  | Documentation</title>
+  <title>eims-hub 0.1.0 | Documentation</title>
   <meta name='viewport' content='width=device-width,initial-scale=1'>
   <link href='assets/bass.css' type='text/css' rel='stylesheet' />
   <link href='assets/style.css' type='text/css' rel='stylesheet' />
@@ -13,8 +13,8 @@
     <div class='flex'>
       <div id='split-left' class='overflow-auto fs0 height-viewport-100'>
         <div class='py1 px2'>
-          <h3 class='mb0 no-anchor'></h3>
-          <div class='mb1'><code></code></div>
+          <h3 class='mb0 no-anchor'>eims-hub</h3>
+          <div class='mb1'><code>0.1.0</code></div>
           <input
             placeholder='Filter'
             id='filter-input'
@@ -33,15 +33,20 @@
                 
                 <div class='toggle-target display-none'>
                   
+                  <ul class='list-reset py1-ul pl1'>
+                    <li class='h5'><span>Static members</span></li>
+                    
+                      <li><a
+                        href='#hubprototype'
+                        class='regular pre-open'>
+                        .prototype
+                      </a></li>
+                    
+                    </ul>
+                  
                   
                     <ul class='list-reset py1-ul pl1'>
                       <li class='h5'><span>Instance members</span></li>
-                      
-                      <li><a
-                        href='#hubmakesocket'
-                        class='regular pre-open'>
-                        #makeSocket
-                      </a></li>
                       
                       <li><a
                         href='#hubwrite'
@@ -112,7 +117,7 @@
 internal message buffer, does some light sanity checking.</p>
 
 
-  <div class='pre p1 fill-light mt0'>new hub(opts: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a>)</div>
+  <div class='pre p1 fill-light mt0'>hub(opts: <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object">Object</a>)</div>
   
   
 
@@ -198,16 +203,14 @@ services channel subscriptions.
   
 
   
-
-  
-    <div class='py1 quiet mt1 prose-big'>Instance Members</div>
+    <div class='py1 quiet mt1 prose-big'>Static Members</div>
     <div class="clearfix">
   
-    <div class='border-bottom' id='hubmakesocket'>
+    <div class='border-bottom' id='hubprototype'>
       <div class="clearfix small pointer toggle-sibling">
         <div class="py1 contain">
             <a class='icon pin-right py1 dark-link caret-right'>▸</a>
-            <span class='code strong strong truncate'>makeSocket()</span>
+            <span class='code strong strong truncate'>prototype</span>
         </div>
       </div>
       <div class="clearfix display-none toggle-target">
@@ -220,7 +223,7 @@ decorates the new <code>WebSocket</code> with a <code>write</code> method to ser
 messages.</p>
 
 
-  <div class='pre p1 fill-light mt0'>makeSocket()</div>
+  <div class='pre p1 fill-light mt0'>prototype</div>
   
   
 
@@ -251,6 +254,14 @@ messages.</p>
       </div>
     </div>
   
+</div>
+
+  
+
+  
+    <div class='py1 quiet mt1 prose-big'>Instance Members</div>
+    <div class="clearfix">
+  
     <div class='border-bottom' id='hubwrite'>
       <div class="clearfix small pointer toggle-sibling">
         <div class="py1 contain">
@@ -263,8 +274,8 @@ messages.</p>
 
   
 
-  <p>Serialize and write data to WebSocket. Has been attached to WebSocket
-object via a <code>bind</code> call, binding its context to that of the hub instance.</p>
+  <p>Serialize and write data to WebSocket. Given to the WebSocket instance but
+bound to the Hub instance.</p>
 
 
   <div class='pre p1 fill-light mt0'>write(data: any)</div>

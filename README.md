@@ -37,16 +37,10 @@ internal message buffer, does some light sanity checking.
     -   `opts.factor` **[number](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number)** Backoff step factor ("to be increased by") (optional, default `200`)
     -   `opts.max` **[number](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number)** Ceiling for backoff wait time (optional, default `2000`)
 
-#### makeSocket
-
-Create a new websocket and hold the ref to it internally. Also
-decorates the new `WebSocket` with a `write` method to serialized outgoing
-messages.
-
 #### write
 
-Serialize and write data to WebSocket. Has been attached to WebSocket
-object via a `bind` call, binding its context to that of the hub instance.
+Serialize and write data to WebSocket. Given to the WebSocket instance but
+bound to the Hub instance.
 
 **Parameters**
 
@@ -90,6 +84,12 @@ channel.
 -   `channel` **[string](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String)** Name of channel to unsub from.
 -   `cb` **[function](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function)** Reference to the callback originally passed on
     subscription creation.
+
+#### prototype
+
+Create a new websocket and hold the ref to it internally. Also
+decorates the new `WebSocket` with a `write` method to serialized outgoing
+messages.
 
 ### subscribeCallback
 
