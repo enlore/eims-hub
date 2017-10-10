@@ -9,6 +9,14 @@ manage pub/sub style subscribtions to channels on a corresponding server.
 Uses [`eims-rest-contract`] to standardize read/write message payloads and assist
 in some bookeeping involing message ids, timestamps, and the like.
 
+## Tests
+
+Gargabe. Tried using Karma to test in like, _every friggin browser man it's
+awesome_ and it kinda worked. Worth circling back on.
+
+Might work up a suite and mock the WebSocket, but that may be more beneficial
+as practice as anything.
+
 [`eims-rest-contract`]: (https://github.com/enlore/eims-rest-contract)
 
 ## API
