@@ -67,7 +67,7 @@ function Hub (opts) {
  * decorates the new `WebSocket` with a `write` method to serialized outgoing
  * messages.
 */
-hub.prototype = {
+Hub.prototype = {
   makeSocket () {
     try {
       this.sock = new WebSocket(this.url)
