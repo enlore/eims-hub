@@ -205,7 +205,7 @@ Hub.prototype = {
     req.requestId = uuid.v1()
     req.pending = true
 
-    let promise = new Promise(function (resolve, reject) {
+    let promise = new Promise((resolve, reject) => {
       // register a callback that will recieve the response data from the
       // request and finish the promise with it
       this.requests[req.requestId] = function (response) {
