@@ -80,12 +80,13 @@ hub.prototype = {
       }, 500)
     }
 
-    this.sock.write = this.write.bind(this) // hrmmmm
+    this.sock.write     = this.write.bind(this)   // hrmmmm
+    this.sock.onmessage = this.handle.bind(this) // not a fan of all this binding
+                                                // what could i do to achieve
+    if (this._bufferedMessages.length) {       // a functional refactor?
+      let data                                // and would it be of benefit?
 
-    if (this._bufferedMessages.length) {
-      // these have alread been serialized
-      let data
-
+      // these have already been serialized
       while ((data = this._bufferedMessages.pop())) {
         this.sock.write(data)
       }
@@ -102,8 +103,6 @@ hub.prototype = {
     this.sock.onerror = (ev) => {
       console.error('hub::sock_onerror::error', ev)
     }
-
-    this.sock.onmessage = this.handle
   },
 
   /**
