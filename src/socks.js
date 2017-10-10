@@ -322,4 +322,4 @@ hub.prototype = {
   }
 }
 
-export default hub
+export default Hub
