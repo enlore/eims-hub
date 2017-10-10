@@ -51,7 +51,7 @@ function hub (opts) {
         /* @private */
         this.sockOpen = false
 
-        if (!opts.subscribePath) console.warn('Hub: no `subscribePath` option set, using default `/api/join`')
+        if (!opts.subscribePath) console.warn('hub::constructor::no `subscribePath` option set, using default `/api/join`')
 
         this.subscribePath = opts.subscribePath || '/api/join'
 
@@ -72,7 +72,7 @@ hub.prototype = {
 
     } catch (e) {
       console.warn(e)
-      console.warn('attempting to establish connection again')
+      console.warn('hub::makeSocket::attempting to establish connection again')
 
       setTimeout(() => {
         // not actually recursive (does not grow infinistack)
@@ -92,25 +92,24 @@ hub.prototype = {
     }
 
     this.sock.onopen = () => {
-      console.info('socket open')
+      console.info('hub::sock_onopen::socket open')
     }
 
     this.sock.onclose = (ev) => {
-      console.info('socket close event', ev)
+      console.info('hub::sock_onclose::socket close event', ev)
     }
 
     this.sock.onerror = (ev) => {
-      console.error('socket error event', ev)
+      console.error('hub::sock_onerror::error', ev)
     }
 
     this.sock.onmessage = this.handle
   },
 
-  // context of .write method bound to instance of hub forcibly with .bind call
-
   /**
-   * Serialize and write data to WebSocket. Has been attached to WebSocket
-   * object via a `bind` call, binding its context to that of the hub instance.
+   * Serialize and write data to WebSocket. Given to the WebSocket instance but
+   * bound to the Hub instance.
+   *
    * @param {any} data - serializeable object to be sent across socket
    */
   write (data) {
@@ -119,6 +118,7 @@ hub.prototype = {
     // the flow of making a connection needs to be audited
     // this sort of check is required in too many places
     if (!this.sock) {
+      // doesn't race since we immediately check
       this.makeSocket(this.url)
     }
 
@@ -126,22 +126,25 @@ hub.prototype = {
       try {
         msg = JSON.stringify(data)
       } catch (e) {
-        // TODO error hub thing
+        // TODO o ruin, o death
         throw e
       }
 
+      // we did it!
       this.backoff = 0
       this.sock.send(msg)
 
     } else if (this.sock.readyState === this.sock.CONNECTING) {
-      console.warn('socket still connecting, retry in a tick')
+      console.info('hub::write::socket still connecting, retry in a tick')
 
       setTimeout(() => {
+        // gotta hand it to myself
         this.sock.write(data)
-      }, 100)
+      }, 500) // should these be constants?
 
+    // open, connecting, or two others that are basically what we don't want
     } else {
-      console.warn(`socket disconnected, retry in a bit: ${this.backoff}`)
+      console.info(`hub::write::socket disconnected, retry in ${this.backoff}ms`)
 
       this._bufferedMessages.unshift(data)
 
@@ -171,7 +174,7 @@ hub.prototype = {
         handler(data)
         delete this.requests[data.requestId]
       } else {
-        console.warn(`pipeline:orphaned_response - no handler`, data)
+        console.warn(`hub::orphaned_response`, data)
       }
 
     } else if (data.channel) {
@@ -281,7 +284,7 @@ hub.prototype = {
     })
 
     if (!cb) {
-      console.error('pipeline:$unsubscribe - method requires reference to original callback as second arg')
+      console.error('hub::unsubscribe::method requires reference to original callback as second arg')
       return
     }
 
@@ -292,7 +295,7 @@ hub.prototype = {
     if (index !== -1)
       subs.splice(index, 1)
     else {
-      console.error('pipeline:$unsubscribe - subscription callback not found in channel')
+      console.error('hub::unsubscribe::subscription callback not found in channel')
     }
 
     if (subs.length === 0) {
