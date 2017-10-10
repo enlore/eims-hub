@@ -12,6 +12,8 @@ import uuid from 'uuid'
  * hub constructor, sets up config for backoff, WebSocket creation,
  * internal message buffer, does some light sanity checking.
  *
+ * @constructor
+ *
  * @param {Object} opts
  * @param {!string} opts.url - Server endpoint hosting websocket
  * @param {string} [opts.subscribePath='/api/join'] - Server side message endpoint that
@@ -19,7 +21,7 @@ import uuid from 'uuid'
  * @param {number} [opts.factor=200] - Backoff step factor ("to be increased by")
  * @param {number} [opts.max=2000] - Ceiling for backoff wait time
  */
-function hub (opts) {
+function Hub (opts) {
         // {
         //  chan: [sub, sub, sub] <- each sub func expects the message payload from the socket message
         // }
@@ -109,6 +111,8 @@ hub.prototype = {
    * Serialize and write data to WebSocket. Given to the WebSocket instance but
    * bound to the Hub instance.
    *
+   * @this Hub
+   *
    * @param {any} data - serializeable object to be sent across socket
    */
   write (data) {
@@ -160,6 +164,8 @@ hub.prototype = {
 
   /**
    * @private
+   *
+   * @this Hub
    */
   handle (ev) {
     let data = this.read(ev)
